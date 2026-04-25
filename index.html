@@ -911,6 +911,9 @@ function scheduleSounds() {
     if (delayMs >= -100) { // 渡過後最大0.1秒までは鳴らす
       soundTimeoutIds.push(setTimeout(() => {
         if (!timerRunning || timerPaused) return;
+        // ブラウザのタブ非アクティブ化等で極端に遅れて発火した場合はスキップする
+        if (Date.now() - fireMs > 1500) return;
+
         playTick(getSettings().volume);
         triggerVisual('tick');
       }, Math.max(0, delayMs)));
@@ -921,12 +924,25 @@ function scheduleSounds() {
   const chimeDelayMs = nextTargetTs * 1000 - nowMs;
   soundTimeoutIds.push(setTimeout(() => {
     if (!timerRunning || timerPaused) return;
-    playChime(getSettings().volume);
-    addLog('チーン', 'chime');
-    triggerVisual('chime');
+
+    // 実際のコールバック時刻を確認し、極端な遅延（スリープやタブのバックグラウンド化）を検知
+    const actualNowSec = Date.now() / 1000;
+    const isLate = (actualNowSec - nextTargetTs) > 2.0;
+
+    // 遅延が2秒以内の場合のみ音を鳴らす（ズレたタイミングでの二重鳴動を防ぐ）
+    if (!isLate) {
+      playChime(getSettings().volume);
+      addLog('チーン', 'chime');
+      triggerVisual('chime');
+    }
+
     const s = getSettings();
     if (s.repeat) {
       nextTargetTs += s.intervalM * 60; // 次のチーン時刻へ
+      // キャッチアップ処理：スリープ復帰時など、未来になるまで時刻を進める
+      while (nextTargetTs <= actualNowSec) {
+        nextTargetTs += s.intervalM * 60;
+      }
       scheduleSounds();                  // 次サイクルをスケジュール
     } else {
       setTimeout(() => stopTimer(), 600);
