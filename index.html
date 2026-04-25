@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>時報タイマー</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ===== リセット・ベーススタイル ===== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-primary:    #0d0f14;
+      --bg-card:       #151820;
+      --bg-input:      #1c2030;
+      --bg-hover:      #222840;
+      --accent-main:   #6c8ef5;
+      --accent-glow:   rgba(108, 142, 245, 0.35);
+      --accent-gold:   #f5c842;
+      --accent-red:    #f55c5c;
+      --accent-green:  #42f5a4;
+      --text-primary:  #e8eaf6;
+      --text-secondary:#8c93b8;
+      --text-muted:    #4a5070;
+      --border:        rgba(108, 142, 245, 0.18);
+      --radius-sm:     8px;
+      --radius-md:     14px;
+      --radius-lg:     20px;
+      --shadow-glow:   0 0 40px rgba(108, 142, 245, 0.15);
+      --transition:    0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      font-family: 'Inter', 'Hiragino Kaku Gothic ProN', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background-image:
+        radial-gradient(ellipse 80% 60% at 50% -20%, rgba(108,142,245,0.12) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 80% 100%, rgba(66,245,164,0.06) 0%, transparent 60%);
+    }
+
+    /* ===== メインカード ===== */
+    .card {
+      width: 100%;
+      max-width: 520px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 36px 32px;
+      box-shadow: var(--shadow-glow), 0 24px 60px rgba(0,0,0,0.5);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, rgba(108,142,245,0.04) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    /* ===== ヘッダー ===== */
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .header h1 {
+      font-size: 1.7rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--accent-main) 0%, #a0b4fa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header p {
+      margin-top: 6px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .header .subtitle-seq {
+      font-size: 0.78rem;
+      color: var(--accent-gold);
+      opacity: 0.7;
+      letter-spacing: 2px;
+      margin-top: 2px;
+    }
+
+    /* ===== 現在時刻ディスプレイ ===== */
+    .clock-display {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px 24px;
+      margin-bottom: 24px;
+      position: relative;
+      gap: 8px;
+    }
+
+    .clock-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2.8rem;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    .clock-time .seconds {
+      color: var(--accent-main);
+    }
+
+    /* ===== カウントダウン表示 ===== */
+    .countdown-area {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .countdown-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .countdown-bar-wrap {
+      flex: 1;
+      height: 4px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .countdown-bar {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, var(--accent-main), #a0b4fa);
+      border-radius: 9999px;
+      transform-origin: left;
+      transition: width 0.9s linear;
+    }
+
+    .countdown-next {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--accent-main);
+      min-width: 52px;
+      text-align: right;
+    }
+
+    /* ===== ステータスバッジ ===== */
+    .status-badge {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      padding: 3px 9px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+    }
+
+    .status-badge.running {
+      background: rgba(66,245,164,0.1);
+      color: var(--accent-green);
+      border: 1px solid rgba(66,245,164,0.3);
+    }
+
+    .status-badge.paused {
+      background: rgba(245,200,66,0.1);
+      color: var(--accent-gold);
+      border: 1px solid rgba(245,200,66,0.3);
+    }
+
+    .status-badge.stopped {
+      background: rgba(140,147,184,0.08);
+      color: var(--text-muted);
+      border: 1px solid rgba(140,147,184,0.15);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .status-badge.running .status-dot {
+      animation: blink 1.2s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ===== 音声ビジュアライザー（鳴動アニメ） ===== */
+    .chime-visual {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      height: 28px;
+    }
+
+    .chime-bar {
+      width: 3px;
+      height: 4px;
+      border-radius: 9999px;
+      background: var(--accent-main);
+      opacity: 0.3;
+      transition: var(--transition);
+    }
+
+    .chime-visual.tick .chime-bar {
+      animation: tick-anim 0.25s ease-out;
+    }
+
+    .chime-visual.chime .chime-bar:nth-child(odd)  { animation: chime-anim 0.8s ease-out; }
+    .chime-visual.chime .chime-bar:nth-child(even) { animation: chime-anim 0.8s 0.08s ease-out; }
+
+    @keyframes tick-anim {
+      0%   { height: 4px;  opacity: 0.3; }
+      30%  { height: 18px; opacity: 1;   background: var(--accent-gold); }
+      100% { height: 4px;  opacity: 0.3; }
+    }
+
+    @keyframes chime-anim {
+      0%   { height: 4px;  opacity: 0.3; }
+      20%  { height: 24px; opacity: 1;   background: var(--accent-green); }
+      100% { height: 4px;  opacity: 0.3; }
+    }
+
+    /* ===== セクション ===== */
+    .section {
+      margin-bottom: 20px;
+    }
+
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    /* ===== グリッドレイアウト ===== */
+    .grid-3 {
+      display: grid;
+      /* 起点・間隔は均等、予告は「秒前」ラベル分を確保して少し広め */
+      grid-template-columns: 1fr 1fr 1.15fr;
+      gap: 10px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* ===== 入力フィールド ===== */
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .input-group label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .input-row {
+      display: flex;
+      align-items: center;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+
+    .input-row:focus-within {
+      border-color: var(--accent-main);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .input-row input[type="number"] {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.05rem;
+      padding: 10px 12px;
+      width: 100%;
+      -moz-appearance: textfield;
+    }
+
+    .input-row input[type="number"]::-webkit-outer-spin-button,
+    .input-row input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+    }
+
+    .input-unit {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      padding: 0 10px;
+      white-space: nowrap;
+    }
+
+    /* ===== ステッパーボタン ===== */
+    .stepper-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 8px 10px;
+      font-size: 0.9rem;
+      line-height: 1;
+      transition: color var(--transition), background var(--transition);
+      display: flex;
+      align-items: center;
+    }
+
+    .stepper-btn:hover {
+      color: var(--accent-main);
+      background: rgba(108,142,245,0.08);
+    }
+
+    .stepper-btn:active {
+      background: rgba(108,142,245,0.18);
+    }
+
+    /* ===== チェックボックス ===== */
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: border-color var(--transition);
+      user-select: none;
+    }
+
+    .checkbox-group:hover {
+      border-color: var(--accent-main);
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      display: none;
+    }
+
+    .checkbox-visual {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--text-muted);
+      border-radius: 4px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color var(--transition), background var(--transition);
+    }
+
+    .checkbox-group input:checked ~ .checkbox-visual {
+      background: var(--accent-main);
+      border-color: var(--accent-main);
+    }
+
+    .checkbox-visual::after {
+      content: '';
+      display: none;
+      width: 4px;
+      height: 8px;
+      border: 2px solid #fff;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg) translate(-1px, -1px);
+    }
+
+    .checkbox-group input:checked ~ .checkbox-visual::after {
+      display: block;
+    }
+
+    .checkbox-text {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    /* ===== ボリュームスライダー ===== */
+    .volume-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+    }
+
+    .volume-icon {
+      font-size: 1rem;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .volume-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      border-radius: 9999px;
+      background: rgba(255,255,255,0.1);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-main);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-glow);
+      transition: box-shadow var(--transition), transform var(--transition);
+    }
+
+    .volume-slider::-webkit-slider-thumb:hover {
+      box-shadow: 0 0 16px var(--accent-glow);
+      transform: scale(1.2);
+    }
+
+    .volume-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--accent-main);
+      min-width: 32px;
+      text-align: right;
+    }
+
+    /* ===== ボタングループ ===== */
+    .btn-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      padding: 12px 18px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.3px;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-main), #8ca6fa);
+      color: #fff;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(108,142,245,0.5);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      border-color: rgba(108,142,245,0.4);
+    }
+
+    .btn-danger {
+      background: rgba(245,92,92,0.1);
+      color: var(--accent-red);
+      border: 1px solid rgba(245,92,92,0.25);
+    }
+
+    .btn-danger:hover {
+      background: rgba(245,92,92,0.2);
+      border-color: rgba(245,92,92,0.5);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* ===== ログ折りたたみトグル ===== */
+    .log-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 20px;
+      cursor: pointer;
+      user-select: none;
+      padding: 6px 0;
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition: color var(--transition);
+      background: none;
+      border: none;
+      width: 100%;
+      text-align: left;
+    }
+
+    .log-toggle:hover {
+      color: var(--text-secondary);
+    }
+
+    .log-toggle-icon {
+      display: inline-block;
+      transition: transform var(--transition);
+      font-style: normal;
+    }
+
+    .log-toggle.open .log-toggle-icon {
+      transform: rotate(90deg);
+    }
+
+    /* ===== ログエリア ===== */
+    .log-wrap {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    .log-wrap.open {
+      max-height: 150px;
+    }
+
+    .log-area {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      max-height: 130px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .log-area::-webkit-scrollbar { width: 4px; }
+    .log-area::-webkit-scrollbar-track { background: transparent; }
+    .log-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 9999px; }
+
+    .log-entry {
+      display: flex;
+      gap: 10px;
+      font-size: 0.75rem;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+
+    .log-entry + .log-entry {
+      border-top: 1px solid rgba(255,255,255,0.04);
+      margin-top: 4px;
+      padding-top: 4px;
+    }
+
+    .log-time {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .log-msg.chime { color: var(--accent-green); font-weight: 600; }
+    .log-msg.info  { color: var(--text-muted); }
+
+    /* ===== セパレーター ===== */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 20px 0;
+    }
+
+    /* ===== アニメーション ===== */
+    .card-enter {
+      animation: card-in 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== レスポンシブ ===== */
+    @media (max-width: 480px) {
+      .card { padding: 24px 18px; }
+      .grid-3 { grid-template-columns: 1fr; }
+      .btn-group { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="card card-enter">
+
+  <!-- ヘッダー -->
+  <div class="header">
+    <h1>🔔 時報タイマー</h1>
+    <p>設定した秒数前から予告音を鳴らし、時刻になるとチーンと鳴ります</p>
+    <p class="subtitle-seq">テッ・テッ・テッ・チーン</p>
+  </div>
+
+  <!-- 現在時刻 & カウントダウン -->
+  <div class="clock-display">
+    <!-- ステータスバッジ -->
+    <div class="status-badge stopped" id="statusBadge">
+      <div class="status-dot"></div>
+      <span id="statusText">停止中</span>
+    </div>
+
+    <!-- 現在時刻 -->
+    <div class="clock-time" id="clockDisplay">
+      <span id="clockHM">--:--</span>:<span class="seconds" id="clockS">--</span>
+    </div>
+
+    <!-- 音ビジュアライザー -->
+    <div class="chime-visual" id="chimeVisual">
+      <div class="chime-bar"></div>
+      <div class="chime-bar"></div>
+      <div class="chime-bar"></div>
+      <div class="chime-bar"></div>
+      <div class="chime-bar"></div>
+      <div class="chime-bar"></div>
+      <div class="chime-bar"></div>
+    </div>
+
+    <!-- カウントダウンバー -->
+    <div class="countdown-area">
+      <span class="countdown-label">次の時報まで</span>
+      <div class="countdown-bar-wrap">
+        <div class="countdown-bar" id="countdownBar" style="width:100%"></div>
+      </div>
+      <span class="countdown-next" id="countdownNext">--:--</span>
+    </div>
+  </div>
+
+  <!-- 設定エリア -->
+  <div class="section">
+    <div class="section-label">タイマー設定</div>
+    <div class="grid-3">
+
+      <!-- 起点秒数 -->
+      <div class="input-group">
+        <label for="startSecond">起点秒数</label>
+        <div class="input-row">
+          <button class="stepper-btn" onclick="stepValue('startSecond', -1, 0, 59)" aria-label="減らす">▼</button>
+          <input type="number" id="startSecond" value="0" min="0" max="59" aria-label="起点秒数 (0〜59)" />
+          <button class="stepper-btn" onclick="stepValue('startSecond', 1, 0, 59)" aria-label="増やす">▲</button>
+          <span class="input-unit">秒</span>
+        </div>
+      </div>
+
+      <!-- 間隔（分） -->
+      <div class="input-group">
+        <label for="intervalMin">間隔</label>
+        <div class="input-row">
+          <button class="stepper-btn" onclick="stepValue('intervalMin', -1, 1, 60)" aria-label="減らす">▼</button>
+          <input type="number" id="intervalMin" value="1" min="1" max="60" aria-label="間隔 (分)" />
+          <button class="stepper-btn" onclick="stepValue('intervalMin', 1, 1, 60)" aria-label="増やす">▲</button>
+          <span class="input-unit">分</span>
+        </div>
+      </div>
+
+      <!-- 予告秒数 -->
+      <div class="input-group">
+        <label for="preSec">予告</label>
+        <div class="input-row">
+          <button class="stepper-btn" onclick="stepValue('preSec', -1, 0, 5)" aria-label="減らす">▼</button>
+          <input type="number" id="preSec" value="3" min="0" max="5" aria-label="予告秒数 (0〜5)" />
+          <button class="stepper-btn" onclick="stepValue('preSec', 1, 0, 5)" aria-label="増やす">▲</button>
+          <span class="input-unit">秒前</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 繰り返し -->
+  <div class="section">
+    <label class="checkbox-group" for="repeatCheck">
+      <input type="checkbox" id="repeatCheck" checked />
+      <div class="checkbox-visual"></div>
+      <span class="checkbox-text">繰り返し動作する</span>
+    </label>
+  </div>
+
+  <!-- 音量 -->
+  <div class="section">
+    <div class="section-label">音量</div>
+    <div class="volume-row">
+      <span class="volume-icon" id="volumeIcon">🔉</span>
+      <input type="range" class="volume-slider" id="volumeSlider"
+             min="0" max="100" value="35"
+             aria-label="音量 (0〜100)" />
+      <span class="volume-value" id="volumeValue">35%</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ボタン -->
+  <div class="btn-group">
+    <button class="btn btn-primary" id="btnStart" onclick="startTimer()">
+      ▶ 開始
+    </button>
+    <button class="btn btn-secondary" id="btnPause" onclick="pauseTimer()" disabled>
+      ⏸ 一時停止
+    </button>
+    <button class="btn btn-danger" id="btnStop" onclick="stopTimer()" disabled>
+      ⏹ 停止
+    </button>
+  </div>
+
+  <!-- ログ折りたたみ -->
+  <button class="log-toggle" id="logToggle" onclick="toggleLog()" aria-expanded="false">
+    <i class="log-toggle-icon">▶</i>
+    ログ
+  </button>
+  <div class="log-wrap" id="logWrap">
+    <div class="log-area" id="logArea">
+      <div class="log-entry">
+        <span class="log-time">--:--:--</span>
+        <span class="log-msg info">タイマーを開始してください</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ===== 状態管理 ===== */
+let timerRunning    = false;      // 動作中かどうか
+let timerPaused     = false;      // 一時停止中かどうか
+let uiIntervalId    = null;       // UIアップデート用のインターバルID
+let soundTimeoutIds = [];         // スケジュール済みの音setTimeout ID一覧
+let audioCtx        = null;       // Web Audio APIコンテキスト
+let nextTargetTs    = null;       // 次に時報が発火するUNIXタイムスタンプ（秒）
+let pausedAt        = null;       // 一時停止した時刻（秒）
+
+/* ===== 設定値取得 ===== */
+function getSettings() {
+  const startSec   = clamp(parseInt(document.getElementById('startSecond').value, 10), 0, 59);
+  const intervalM  = clamp(parseInt(document.getElementById('intervalMin').value,  10), 1, 60);
+  const preSec     = clamp(parseInt(document.getElementById('preSec').value,       10), 0, 5);
+  const repeat     = document.getElementById('repeatCheck').checked;
+  const volume     = parseInt(document.getElementById('volumeSlider').value, 10) / 100;
+  return { startSec, intervalM, preSec, repeat, volume };
+}
+
+function clamp(val, min, max) {
+  return Math.max(min, Math.min(max, val));
+}
+
+/* ===== ステッパーボタン ===== */
+function stepValue(id, delta, min, max) {
+  const el = document.getElementById(id);
+  el.value = clamp(parseInt(el.value, 10) + delta, min, max);
+}
+
+/* ===== 音量スライダー ===== */
+document.getElementById('volumeSlider').addEventListener('input', function () {
+  const v = parseInt(this.value, 10);
+  document.getElementById('volumeValue').textContent = v + '%';
+  const icon = document.getElementById('volumeIcon');
+  icon.textContent = v === 0 ? '🔇' : v < 50 ? '🔉' : '🔊';
+});
+
+/* ===== 時計表示の更新 ===== */
+function updateClock() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  document.getElementById('clockHM').textContent = `${hh}:${mm}`;
+  document.getElementById('clockS').textContent  = ss;
+}
+
+/* ===== カウントダウンバー更新 ===== */
+function updateCountdown(settings) {
+  if (!timerRunning || timerPaused || nextTargetTs == null) {
+    document.getElementById('countdownBar').style.width  = '100%';
+    document.getElementById('countdownNext').textContent = '--:--';
+    return;
+  }
+
+  const nowSec  = Date.now() / 1000;
+  const remain  = Math.max(0, nextTargetTs - nowSec);
+  const totalSec = settings.intervalM * 60;
+  const pct = (remain / totalSec) * 100;
+
+  document.getElementById('countdownBar').style.width = pct.toFixed(1) + '%';
+
+  const rm = Math.floor(remain / 60);
+  const rs = Math.floor(remain % 60);
+  if (remain <= 0) {
+    document.getElementById('countdownNext').textContent = '00:00';
+  } else {
+    document.getElementById('countdownNext').textContent = `${String(rm).padStart(2,'0')}:${String(rs).padStart(2,'0')}`;
+  }
+}
+
+/* ===== 次の起動タイムスタンプを計算 ===== */
+function calcNextTarget(settings) {
+  const now = new Date();
+  const intervalMs = settings.intervalM * 60 * 1000;
+  const nowMs = now.getTime();
+
+  // 現在時刻の直近の「起点秒数」を求める（1日の中での秒数を intervalMs 単位で割り当て）
+  // アプローチ: 今日0:00:00からの経過msを intervalMs で mod して「今のサイクル内の経過」を算出
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const elapsed  = nowMs - dayStart;
+  const targetOffsetMs = settings.startSec * 1000; // 起点秒数をmsに変換
+
+  // 最初のターゲット候補
+  let candidateMs = dayStart + targetOffsetMs;
+  // candidateMs を intervalMs ずつ現在の先へ進める
+  while (candidateMs <= nowMs) {
+    candidateMs += intervalMs;
+  }
+  return candidateMs / 1000; // 秒単位で返す
+}
+
+/* ===== UIアップデートループ（250msごと実行） ===== */
+function uiTick() {
+  updateClock();
+  if (timerRunning && !timerPaused) {
+    updateCountdown(getSettings());
+  }
+}
+
+/* ===== 音のキャンセル ===== */
+function cancelSounds() {
+  soundTimeoutIds.forEach(id => clearTimeout(id));
+  soundTimeoutIds = [];
+}
+
+/* ===== 音のスケジューリング（setTimeoutで正確な時刻に発火） ===== */
+function scheduleSounds() {
+  cancelSounds();
+  if (nextTargetTs == null) return;
+
+  const settings = getSettings();
+  const nowMs    = Date.now();
+
+  // 予告音（テッ）: nextTargetTs - n 秒に正確にスケジュール
+  for (let i = settings.preSec; i >= 1; i--) {
+    const fireMs  = nextTargetTs * 1000 - i * 1000;
+    const delayMs = fireMs - nowMs;
+    if (delayMs >= -100) { // 渡過後最大0.1秒までは鳴らす
+      soundTimeoutIds.push(setTimeout(() => {
+        if (!timerRunning || timerPaused) return;
+        playTick(getSettings().volume);
+        triggerVisual('tick');
+      }, Math.max(0, delayMs)));
+    }
+  }
+
+  // チーン: nextTargetTs 秒に正確にスケジュール
+  const chimeDelayMs = nextTargetTs * 1000 - nowMs;
+  soundTimeoutIds.push(setTimeout(() => {
+    if (!timerRunning || timerPaused) return;
+    playChime(getSettings().volume);
+    addLog('チーン', 'chime');
+    triggerVisual('chime');
+    const s = getSettings();
+    if (s.repeat) {
+      nextTargetTs += s.intervalM * 60; // 次のチーン時刻へ
+      scheduleSounds();                  // 次サイクルをスケジュール
+    } else {
+      setTimeout(() => stopTimer(), 600);
+    }
+  }, Math.max(0, chimeDelayMs)));
+}
+
+/* ===== Audio API の初期化 ===== */
+function getAudioCtx() {
+  if (!audioCtx || audioCtx.state === 'closed') {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+/* ===== 予告音（テッ） ===== */
+function playTick(volume) {
+  const ctx  = getAudioCtx();
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(volume * 0.28, ctx.currentTime + 0.005);
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.12);
+  gain.connect(ctx.destination);
+
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(880, ctx.currentTime);
+  osc.frequency.linearRampToValueAtTime(760, ctx.currentTime + 0.12);
+  osc.connect(gain);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.15);
+}
+
+/* ===== チーン音（本番） ===== */
+function playChime(volume) {
+  const ctx = getAudioCtx();
+
+  // 基音（1倍音）
+  playChimePartial(ctx, 523.25, volume * 0.55, 0,    2.5);  // C5
+  // 2倍音
+  playChimePartial(ctx, 1046.5, volume * 0.25, 0.01, 2.0);  // C6
+  // 3倍音
+  playChimePartial(ctx, 1568,   volume * 0.12, 0.02, 1.5);
+
+  // アタック用のクリック感
+  playChimePartial(ctx, 2400,   volume * 0.08, 0,    0.06);
+}
+
+function playChimePartial(ctx, freq, gainPeak, delay, duration) {
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+  gain.gain.linearRampToValueAtTime(gainPeak, ctx.currentTime + delay + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+  gain.connect(ctx.destination);
+
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+  osc.connect(gain);
+  osc.start(ctx.currentTime + delay);
+  osc.stop(ctx.currentTime + delay + duration + 0.05);
+}
+
+/* ===== ビジュアルアニメ ===== */
+function triggerVisual(type) {
+  const el = document.getElementById('chimeVisual');
+  el.classList.remove('tick', 'chime');
+  // 再トリガーのためにリフロー
+  void el.offsetWidth;
+  el.classList.add(type);
+  setTimeout(() => el.classList.remove(type), type === 'tick' ? 350 : 900);
+}
+
+/* ===== ログ追加 ===== */
+function addLog(msg, type) {
+  const area = document.getElementById('logArea');
+  const now  = new Date();
+  const t = [now.getHours(), now.getMinutes(), now.getSeconds()]
+    .map(v => String(v).padStart(2, '0')).join(':');
+
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `<span class="log-time">${t}</span><span class="log-msg ${type}">${msg}</span>`;
+  area.insertBefore(entry, area.firstChild);
+
+  // 最大20件
+  while (area.children.length > 20) area.removeChild(area.lastChild);
+}
+
+/* ===== ステータスUI更新 ===== */
+function setStatus(state) {
+  const badge = document.getElementById('statusBadge');
+  const text  = document.getElementById('statusText');
+  badge.className = `status-badge ${state}`;
+  const labels = { running: '動作中', paused: '一時停止', stopped: '停止中' };
+  text.textContent = labels[state] || '停止中';
+}
+
+/* ===== ボタン有効/無効 ===== */
+function setButtons(running, paused) {
+  document.getElementById('btnStart').disabled = running;
+  document.getElementById('btnPause').disabled = !running;
+  document.getElementById('btnStop').disabled  = !running;
+  document.getElementById('btnPause').textContent = paused ? '▶ 再開' : '⏸ 一時停止';
+}
+
+/* ===== ログトグル ===== */
+function toggleLog() {
+  const btn  = document.getElementById('logToggle');
+  const wrap = document.getElementById('logWrap');
+  const open = wrap.classList.toggle('open');
+  btn.classList.toggle('open', open);
+  btn.setAttribute('aria-expanded', open);
+}
+
+/* ===== タイマー開始 ===== */
+function startTimer() {
+  // AudioContextのためにユーザー操作が必要
+  getAudioCtx();
+
+  timerRunning = true;
+  timerPaused  = false;
+  pausedAt     = null;
+
+  const settings = getSettings();
+  nextTargetTs = calcNextTarget(settings);
+
+  setStatus('running');
+  setButtons(true, false);
+  addLog('タイマー開始', 'info');
+  updateClock();
+  updateCountdown(settings);
+
+  // UIは250msごとに更新、音は setTimeoutで正確にスケジュール
+  if (uiIntervalId) clearInterval(uiIntervalId);
+  uiIntervalId = setInterval(uiTick, 250);
+  scheduleSounds();
+}
+
+/* ===== 一時停止 / 再開 ===== */
+function pauseTimer() {
+  if (!timerRunning) return;
+
+  timerPaused = !timerPaused;
+
+  if (timerPaused) {
+    // 一時停止: スケジュール済みの音をキャンセルし、時刻を記録
+    pausedAt = Date.now() / 1000;
+    cancelSounds();
+    setStatus('paused');
+    setButtons(true, true);
+    addLog('一時停止', 'info');
+  } else {
+    // 再開: 一時停止していた時間分だけ nextTargetTs をずらし、再スケジュール
+    if (pausedAt != null && nextTargetTs != null) {
+      nextTargetTs += Date.now() / 1000 - pausedAt;
+    }
+    pausedAt = null;
+    scheduleSounds();
+    setStatus('running');
+    setButtons(true, false);
+    addLog('再開', 'info');
+  }
+}
+
+/* ===== タイマー停止 ===== */
+function stopTimer() {
+  timerRunning = false;
+  timerPaused  = false;
+  nextTargetTs = null;
+  pausedAt     = null;
+
+  cancelSounds();
+  if (uiIntervalId) {
+    clearInterval(uiIntervalId);
+    uiIntervalId = null;
+  }
+
+  setStatus('stopped');
+  setButtons(false, false);
+  document.getElementById('countdownBar').style.width  = '100%';
+  document.getElementById('countdownNext').textContent = '--:--';
+  addLog('タイマー停止', 'info');
+}
+
+/* ===== 入力バリデーション ===== */
+['startSecond', 'intervalMin', 'preSec'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('change', function () {
+    const min = parseInt(this.min, 10);
+    const max = parseInt(this.max, 10);
+    this.value = clamp(parseInt(this.value, 10) || min, min, max);
+  });
+});
+
+/* ===== 初期化 ===== */
+updateClock();
+setInterval(updateClock, 1000);
+</script>
+</body>
+</html>
